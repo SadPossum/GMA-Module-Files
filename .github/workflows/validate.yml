@@ -1,0 +1,52 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout module
+        uses: actions/checkout@v4
+        with:
+          path: gma-module-files
+          fetch-depth: 0
+
+      - name: Checkout framework
+        uses: actions/checkout@v4
+        with:
+          repository: SadPossum/gma-framework
+          path: gma-framework
+          token: ${{ secrets.GMA_CI_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Bootstrap source roots
+        shell: pwsh
+        working-directory: gma-module-files
+        run: ./eng/bootstrap-source-roots.ps1 -Force
+
+      - name: Restore
+        working-directory: gma-module-files
+        run: dotnet restore Gma.Modules.Files.slnx
+
+      - name: Build
+        working-directory: gma-module-files
+        run: dotnet build Gma.Modules.Files.slnx --no-restore -m:1
+
+      - name: Test
+        working-directory: gma-module-files
+        run: dotnet test Gma.Modules.Files.slnx --no-build --logger "console;verbosity=minimal"

@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <GmaFrameworkRoot>$(MSBuildThisFileDirectory)..\gma-framework\src\</GmaFrameworkRoot>
+    <GmaModulesRoot>$(MSBuildThisFileDirectory)..\</GmaModulesRoot>
+    <GmaModuleAdministrationRoot>$(GmaModulesRoot)gma-module-administration\src\</GmaModuleAdministrationRoot>
+    <GmaModuleAuthRoot>$(GmaModulesRoot)gma-module-auth\src\</GmaModuleAuthRoot>
+    <GmaModuleFilesRoot>$(GmaModulesRoot)gma-module-files\src\</GmaModuleFilesRoot>
+    <GmaModuleNotificationsRoot>$(GmaModulesRoot)gma-module-notifications\src\</GmaModuleNotificationsRoot>
+    <GmaModuleTaskRuntimeRoot>$(GmaModulesRoot)gma-module-task-runtime\src\</GmaModuleTaskRuntimeRoot>
+    <GmaModuleTenancyRoot>$(GmaModulesRoot)gma-module-tenancy\src\</GmaModuleTenancyRoot>
+  </PropertyGroup>
+</Project>
