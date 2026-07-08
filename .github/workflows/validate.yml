@@ -41,17 +41,12 @@ jobs:
 
       - name: Restore
         working-directory: gma-module-files
-        run: dotnet restore 
-Gma.Modules.Files.slnx
+        run: dotnet restore Gma.Modules.Files.slnx
 
       - name: Build
         working-directory: gma-module-files
-        run: dotnet build 
-Gma.Modules.Files.slnx
- --no-restore -m:1
+        run: dotnet build Gma.Modules.Files.slnx --no-restore -m:1
 
       - name: Test
         working-directory: gma-module-files
-        run: dotnet test 
-Gma.Modules.Files.slnx
- --no-build --logger "console;verbosity=minimal"
+        run: dotnet test Gma.Modules.Files.slnx --no-build --logger "console;verbosity=minimal"
