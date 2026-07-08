@@ -2,7 +2,7 @@
 
 This repository owns the optional GMA Files module: a tenant-scoped API front door over the framework file-storage abstractions.
 
-It is consumed by source-first applications and by the `gma-skeleton` composition repository as a Git submodule under `gma/modules/files`.
+It is consumed by source-first applications and by the `GMA-Skeleton` composition repository as a Git submodule under `gma/modules/files`.
 
 Useful entry points:
 
