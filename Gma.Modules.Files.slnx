@@ -2,9 +2,31 @@
   <Folder Name="/docs/">
     <File Path="docs/README.md" />
   </Folder>
-  <Folder Name="/src/">
+  <Folder Name="/eng/">
+    <File Path="eng/bootstrap-source-roots.ps1" />
+  </Folder>
+  <Folder Name="/.github/workflows/">
+    <File Path=".github/workflows/validate.yml" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="Gma.SourceRoots.props.example" />
+    <File Path="LICENSE" />
+    <File Path="nuget.config" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/Api/">
     <Project Path="src/Gma.Modules.Files.Api/Gma.Modules.Files.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Application/">
     <Project Path="src/Gma.Modules.Files.Application/Gma.Modules.Files.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Contracts/">
     <Project Path="src/Gma.Modules.Files.Contracts/Gma.Modules.Files.Contracts.csproj" />
   </Folder>
 </Solution>
