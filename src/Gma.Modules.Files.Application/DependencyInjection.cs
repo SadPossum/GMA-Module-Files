@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Gma.Framework.Application.Composition;
 using Gma.Framework.FileManagement;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 public static class DependencyInjection
 {
@@ -20,6 +21,7 @@ public static class DependencyInjection
             .Validate(IsValidFileManagementOptions, FileManagementOptionsValidation.FailureMessage)
             .ValidateOnStart();
         services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);
+        services.TryAddSingleton<IFileContentInspector, UnavailableFileContentInspector>();
 
         return services;
     }

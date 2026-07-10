@@ -32,3 +32,9 @@ builder.ValidateModuleComposition();
 ```
 
 For MinIO, use `builder.AddMinioFileStorage()` instead, or register both adapters and let `FileManagement:Provider` select one.
+
+## Content Inspection And Lifecycle
+
+Set `FileManagement:RequireContentInspection=true` in production and replace `IFileContentInspector` with a malware/content scanner adapter. Required inspection copies the upload into a bounded delete-on-close temporary file, verifies the declared length, scans the rewindable content, and stores bytes only after a `Clean` result. An unavailable scanner fails closed; development may explicitly set the option to `false`.
+
+Storage metadata already records validated content type, length, file name, module metadata, and the inspector name. Product modules still own business retention, legal holds, public sharing, and orphan cleanup because those policies depend on the record that references the object. Delete through `IFileStorage` only after the owning module has made that lifecycle decision.

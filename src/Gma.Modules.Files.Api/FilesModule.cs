@@ -129,6 +129,9 @@ public sealed class FilesModule : IModule
         new(FilesApplicationErrors.FileEmpty.Code, StatusCodes.Status400BadRequest),
         new(FilesApplicationErrors.FileTooLarge.Code, StatusCodes.Status413PayloadTooLarge),
         new(FilesApplicationErrors.ContentTypeNotAllowed.Code, StatusCodes.Status415UnsupportedMediaType),
+        new(FilesApplicationErrors.ContentInspectionRequired.Code, StatusCodes.Status503ServiceUnavailable),
+        new(FilesApplicationErrors.ContentRejected.Code, StatusCodes.Status422UnprocessableEntity),
+        new(FilesApplicationErrors.ContentLengthMismatch.Code, StatusCodes.Status400BadRequest),
         new(FilesApplicationErrors.FileIdInvalid.Code, StatusCodes.Status400BadRequest),
         new(FilesApplicationErrors.FileNotFound.Code, StatusCodes.Status404NotFound),
         new(FilesApplicationErrors.AccessDenied.Code, StatusCodes.Status403Forbidden));
