@@ -2,7 +2,7 @@ namespace Gma.Modules.Files.Contracts;
 
 using Gma.Framework.FileManagement;
 using Gma.Framework.ModuleComposition;
-using Gma.Framework.Tenancy;
+using Gma.Framework.Scoping;
 
 public static class FilesProfiles
 {
@@ -18,16 +18,16 @@ public static class FilesProfiles
         requires:
         [
             new RequiredCompositionFeature(
-                TenancyCompositionFeatures.Context,
+                ScopeCompositionFeatures.Context,
                 Provider(DefaultName),
-                reason: "Files are tenant-partitioned when tenancy is enabled; register TenancyModule or Gma.Framework.Tenancy.Infrastructure."),
+                reason: "Files are scoped when scoping is enabled; register scoping infrastructure or a tenancy bridge."),
             new RequiredCompositionFeature(
                 new CompositionFeatureId(FileManagementCompositionFeatures.Storage),
                 Provider(DefaultName),
                 reason: "Files stores bytes through Gma.Framework.FileManagement; register a concrete adapter such as LocalStorage or MinIO.")
         ],
         displayName: "Files default",
-        description: "Tenant-scoped file upload, download, and delete front door backed by shared file storage.");
+        description: "Scope-aware file upload, download, and delete front door backed by shared file storage.");
 
     private static string Provider(string profileName) => $"{FilesModuleMetadata.Name}/{profileName}";
 }

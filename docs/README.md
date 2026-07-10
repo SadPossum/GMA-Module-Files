@@ -1,10 +1,10 @@
 # Files Module
 
-`Files` is an optional tenant-scoped API front door over shared file storage.
+`Files` is an optional scope-aware API front door over shared file storage.
 
 The module profile requires:
 
-- `tenancy.context`
+- `scoping.context`
 - `file-management.storage`
 
 It provides:
@@ -21,7 +21,7 @@ GET    /api/files/{fileId}
 DELETE /api/files/{fileId}
 ```
 
-All endpoints require authorization. When tenancy is enabled, the standard tenant header is required and must match the authenticated token tenant claim. Storage keys are partitioned by tenant hash and caller subject hash, so another authenticated user in the same tenant cannot read or delete a private file by guessing its id.
+All endpoints require authorization. When scoping is enabled, the configured scope header is required and must match the authenticated token tenant claim in tenant-aware hosts. Storage keys are scoped by scope hash and caller subject hash, so another authenticated user in the same tenant/scope cannot read or delete a private file by guessing its id.
 
 ## Composition Example
 

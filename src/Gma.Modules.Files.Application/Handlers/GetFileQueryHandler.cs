@@ -5,19 +5,19 @@ using Gma.Modules.Files.Application.ReadModels;
 using Gma.Modules.Files.Application.Visibility;
 using Gma.Framework.Cqrs;
 using Gma.Framework.FileManagement;
+using Gma.Framework.Scoping;
 using Gma.Framework.Results;
-using Gma.Framework.Tenancy;
 
 internal sealed class GetFileQueryHandler(
     IFileStorage storage,
-    ITenantContext tenantContext)
+    IScopeContext scopeContext)
     : IQueryHandler<GetFileQuery, FileDownload>
 {
     public async Task<Result<FileDownload>> HandleAsync(
         GetFileQuery query,
         CancellationToken cancellationToken)
     {
-        Result<Unit> access = FilesAccess.EnsureUserSubject(query.Subject, tenantContext);
+        Result<Unit> access = FilesAccess.EnsureUserSubject(query.Subject, scopeContext);
         if (access.IsFailure)
         {
             return Result.Failure<FileDownload>(access.Error);
@@ -28,7 +28,7 @@ internal sealed class GetFileQueryHandler(
             return Result.Failure<FileDownload>(FilesApplicationErrors.FileIdInvalid);
         }
 
-        FileStorageObjectKey key = FilesStorageKeys.For(query.FileId, query.Subject, tenantContext);
+        FileStorageObjectKey key = FilesStorageKeys.For(query.FileId, query.Subject, scopeContext);
         FileStorageReadResult? file = await storage.OpenReadAsync(key, cancellationToken).ConfigureAwait(false);
 
         return file is null

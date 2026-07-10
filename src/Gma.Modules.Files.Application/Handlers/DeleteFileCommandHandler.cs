@@ -4,19 +4,19 @@ using Gma.Modules.Files.Application.Commands;
 using Gma.Modules.Files.Application.Visibility;
 using Gma.Framework.Cqrs;
 using Gma.Framework.FileManagement;
+using Gma.Framework.Scoping;
 using Gma.Framework.Results;
-using Gma.Framework.Tenancy;
 
 internal sealed class DeleteFileCommandHandler(
     IFileStorage storage,
-    ITenantContext tenantContext)
+    IScopeContext scopeContext)
     : ICommandHandler<DeleteFileCommand, Unit>
 {
     public async Task<Result<Unit>> HandleAsync(
         DeleteFileCommand command,
         CancellationToken cancellationToken)
     {
-        Result<Unit> access = FilesAccess.EnsureUserSubject(command.Subject, tenantContext);
+        Result<Unit> access = FilesAccess.EnsureUserSubject(command.Subject, scopeContext);
         if (access.IsFailure)
         {
             return access;
@@ -27,7 +27,7 @@ internal sealed class DeleteFileCommandHandler(
             return Result.Failure<Unit>(FilesApplicationErrors.FileIdInvalid);
         }
 
-        FileStorageObjectKey key = FilesStorageKeys.For(command.FileId, command.Subject, tenantContext);
+        FileStorageObjectKey key = FilesStorageKeys.For(command.FileId, command.Subject, scopeContext);
         bool deleted = await storage.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
 
         return deleted

@@ -17,14 +17,14 @@ using Microsoft.Extensions.Hosting;
 using Gma.Framework.AccessControl;
 using Gma.Framework.Api.Modules;
 using Gma.Framework.Api.Observability;
+using Gma.Framework.Api.Scoping;
 using Gma.Framework.Api.Results;
-using Gma.Framework.Api.Tenancy;
 using Gma.Framework.Cqrs;
 using Gma.Framework.ModuleComposition;
 using Gma.Framework.Naming;
+using Gma.Framework.Scoping;
 using Gma.Framework.Results;
 using Gma.Framework.Security;
-using Gma.Framework.Tenancy;
 
 public sealed class FilesModule : IModule
 {
@@ -50,11 +50,11 @@ public sealed class FilesModule : IModule
         group.MapPost("/", async (
             IFormFile? file,
             HttpContext httpContext,
-            ITenantContext tenantContext,
+            IScopeContext scopeContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserSubject(httpContext, tenantContext, out AccessSubject? subject, out IResult? failure))
+            if (!TryResolveUserSubject(httpContext, scopeContext, out AccessSubject? subject, out IResult? failure))
             {
                 return failure;
             }
@@ -74,18 +74,18 @@ public sealed class FilesModule : IModule
                 ? result.ToHttpResult(PublicErrorStatusCodes)
                 : Results.Created(result.Value.DownloadPath, result.Value);
         })
-            .RequireTenant()
+            .RequireScope()
             .RequireAuthorization()
             .DisableAntiforgery();
 
         group.MapGet("/{fileId:guid}", async (
             Guid fileId,
             HttpContext httpContext,
-            ITenantContext tenantContext,
+            IScopeContext scopeContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserSubject(httpContext, tenantContext, out AccessSubject? subject, out IResult? failure))
+            if (!TryResolveUserSubject(httpContext, scopeContext, out AccessSubject? subject, out IResult? failure))
             {
                 return failure;
             }
@@ -98,17 +98,17 @@ public sealed class FilesModule : IModule
                 ? result.ToHttpResult(PublicErrorStatusCodes)
                 : new FileDownloadHttpResult(result.Value);
         })
-            .RequireTenant()
+            .RequireScope()
             .RequireAuthorization();
 
         group.MapDelete("/{fileId:guid}", async (
             Guid fileId,
             HttpContext httpContext,
-            ITenantContext tenantContext,
+            IScopeContext scopeContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserSubject(httpContext, tenantContext, out AccessSubject? subject, out IResult? failure))
+            if (!TryResolveUserSubject(httpContext, scopeContext, out AccessSubject? subject, out IResult? failure))
             {
                 return failure;
             }
@@ -119,7 +119,7 @@ public sealed class FilesModule : IModule
 
             return result.IsSuccess ? Results.NoContent() : result.ToHttpResult(PublicErrorStatusCodes);
         })
-            .RequireTenant()
+            .RequireScope()
             .RequireAuthorization();
     }
 
@@ -135,7 +135,7 @@ public sealed class FilesModule : IModule
 
     private static bool TryResolveUserSubject(
         HttpContext httpContext,
-        ITenantContext tenantContext,
+        IScopeContext scopeContext,
         [NotNullWhen(true)] out AccessSubject? subject,
         [NotNullWhen(false)] out IResult? failure)
     {
@@ -150,21 +150,18 @@ public sealed class FilesModule : IModule
             return false;
         }
 
-        string? tenantId = tenantContext.TenantId;
-        if (tenantContext.IsEnabled)
+        if (scopeContext.IsEnabled)
         {
-            string? tokenTenantId = httpContext.User.FindFirstValue(ApplicationClaimNames.TenantId);
-            if (!TenantIds.TryNormalize(tokenTenantId, out string? normalizedTokenTenantId) ||
-                !string.Equals(normalizedTokenTenantId, tenantContext.TenantId, StringComparison.Ordinal))
+            string? tokenScopeId = httpContext.User.FindFirstValue(ApplicationClaimNames.ScopeId);
+            if (!ScopeIds.TryNormalize(tokenScopeId, out string? normalizedTokenScopeId) ||
+                !string.Equals(normalizedTokenScopeId, scopeContext.ScopeId, StringComparison.Ordinal))
             {
                 failure = Results.Forbid();
                 return false;
             }
-
-            tenantId = normalizedTokenTenantId;
         }
 
-        if (!AccessSubject.TryCreate(AccessSubjectKind.User, userId, tenantId, out subject))
+        if (!AccessSubject.TryCreate(AccessSubjectKind.User, userId, out subject))
         {
             failure = Results.Unauthorized();
             return false;

@@ -5,15 +5,15 @@ using Gma.Modules.Files.Contracts;
 using Microsoft.Extensions.Options;
 using Gma.Framework.Cqrs;
 using Gma.Framework.FileManagement;
+using Gma.Framework.Scoping;
 using Gma.Framework.Results;
 using Gma.Framework.Runtime.Identity;
-using Gma.Framework.Tenancy;
 using Gma.Modules.Files.Application.Visibility;
 
 internal sealed class UploadFileCommandHandler(
     IFileStorage storage,
     IIdGenerator idGenerator,
-    ITenantContext tenantContext,
+    IScopeContext scopeContext,
     IOptions<FileManagementOptions> fileManagementOptions)
     : ICommandHandler<UploadFileCommand, FileUploadResponse>
 {
@@ -21,7 +21,7 @@ internal sealed class UploadFileCommandHandler(
         UploadFileCommand command,
         CancellationToken cancellationToken)
     {
-        Result<Unit> access = FilesAccess.EnsureUserSubject(command.Subject, tenantContext);
+        Result<Unit> access = FilesAccess.EnsureUserSubject(command.Subject, scopeContext);
         if (access.IsFailure)
         {
             return Result.Failure<FileUploadResponse>(access.Error);
@@ -56,7 +56,7 @@ internal sealed class UploadFileCommandHandler(
             return Result.Failure<FileUploadResponse>(FilesApplicationErrors.FileIdInvalid);
         }
 
-        FileStorageObjectKey key = FilesStorageKeys.For(fileId, command.Subject, tenantContext);
+        FileStorageObjectKey key = FilesStorageKeys.For(fileId, command.Subject, scopeContext);
         FileStorageWriteRequest request = new(
             key,
             command.Content,

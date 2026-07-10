@@ -4,38 +4,38 @@ using System.Security.Cryptography;
 using System.Text;
 using Gma.Framework.AccessControl;
 using Gma.Framework.FileManagement;
-using Gma.Framework.Tenancy;
+using Gma.Framework.Scoping;
 
 internal static class FilesStorageKeys
 {
     public static FileStorageObjectKey For(
         Guid fileId,
         AccessSubject subject,
-        ITenantContext tenantContext)
+        IScopeContext scopeContext)
     {
         if (fileId == Guid.Empty)
         {
             throw new ArgumentException("File id cannot be empty.", nameof(fileId));
         }
 
-        string tenantSegment = TenantSegment(tenantContext);
+        string scopeSegment = ScopeSegment(scopeContext);
         string subjectSegment = SubjectSegment(subject);
-        return new FileStorageObjectKey($"files/{tenantSegment}/{subjectSegment}/{fileId:N}");
+        return new FileStorageObjectKey($"files/{scopeSegment}/{subjectSegment}/{fileId:N}");
     }
 
-    private static string TenantSegment(ITenantContext tenantContext)
+    private static string ScopeSegment(IScopeContext scopeContext)
     {
-        if (!tenantContext.IsEnabled)
+        if (!scopeContext.IsEnabled)
         {
             return "global";
         }
 
-        if (string.IsNullOrWhiteSpace(tenantContext.TenantId))
+        if (string.IsNullOrWhiteSpace(scopeContext.ScopeId))
         {
-            throw new InvalidOperationException("Tenant id is required when tenancy is enabled.");
+            throw new InvalidOperationException("Scope id is required when scoping is enabled.");
         }
 
-        return $"tenant-{HashSegment(tenantContext.TenantId)}";
+        return $"scope-{HashSegment(scopeContext.ScopeId)}";
     }
 
     private static string SubjectSegment(AccessSubject subject)
