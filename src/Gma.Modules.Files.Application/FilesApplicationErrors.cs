@@ -4,9 +4,9 @@ using Gma.Framework.Results;
 
 public static class FilesApplicationErrors
 {
-    public static readonly Error TenantRequired = new(
-        "Files.TenantRequired",
-        "A tenant is required for file operations.");
+    public static readonly Error ScopeRequired = new(
+        "Files.ScopeRequired",
+        "An active scope is required for file operations.");
 
     public static readonly Error AccessDenied = new(
         "Files.AccessDenied",

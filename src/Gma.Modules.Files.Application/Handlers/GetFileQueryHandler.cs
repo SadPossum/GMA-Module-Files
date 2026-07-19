@@ -30,6 +30,14 @@ internal sealed class GetFileQueryHandler(
 
         FileStorageObjectKey key = FilesStorageKeys.For(query.FileId, query.Subject, scopeContext);
         FileStorageReadResult? file = await storage.OpenReadAsync(key, cancellationToken).ConfigureAwait(false);
+        if (file is null)
+        {
+            FileStorageObjectKey legacyKey = FilesStorageKeys.LegacyFor(
+                query.FileId,
+                query.Subject,
+                scopeContext);
+            file = await storage.OpenReadAsync(legacyKey, cancellationToken).ConfigureAwait(false);
+        }
 
         return file is null
             ? Result.Failure<FileDownload>(FilesApplicationErrors.FileNotFound)

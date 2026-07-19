@@ -29,6 +29,14 @@ internal sealed class DeleteFileCommandHandler(
 
         FileStorageObjectKey key = FilesStorageKeys.For(command.FileId, command.Subject, scopeContext);
         bool deleted = await storage.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
+        if (!deleted)
+        {
+            FileStorageObjectKey legacyKey = FilesStorageKeys.LegacyFor(
+                command.FileId,
+                command.Subject,
+                scopeContext);
+            deleted = await storage.DeleteAsync(legacyKey, cancellationToken).ConfigureAwait(false);
+        }
 
         return deleted
             ? Result.Success(Unit.Value)

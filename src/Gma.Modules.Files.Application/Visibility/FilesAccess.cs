@@ -23,7 +23,7 @@ internal static class FilesAccess
 
         if (string.IsNullOrWhiteSpace(scopeContext.ScopeId))
         {
-            return Result.Failure<Unit>(FilesApplicationErrors.TenantRequired);
+            return Result.Failure<Unit>(FilesApplicationErrors.ScopeRequired);
         }
 
         return Result.Success(Unit.Value);

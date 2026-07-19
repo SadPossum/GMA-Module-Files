@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/docs/">
+    <File Path="docs/files-production-hardening-task.md" />
     <File Path="docs/README.md" />
   </Folder>
   <Folder Name="/eng/">
     <File Path="eng/bootstrap-source-roots.ps1" />
+    <File Path="eng/check-boundaries.ps1" />
   </Folder>
   <Folder Name="/.github/workflows/">
     <File Path=".github/workflows/validate.yml" />
@@ -28,5 +30,8 @@
   </Folder>
   <Folder Name="/src/Contracts/">
     <Project Path="src/Gma.Modules.Files.Contracts/Gma.Modules.Files.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Gma.Modules.Files.Tests/Gma.Modules.Files.Tests.csproj" />
   </Folder>
 </Solution>

@@ -20,17 +20,16 @@ using Gma.Framework.Api.Observability;
 using Gma.Framework.Api.Scoping;
 using Gma.Framework.Api.Results;
 using Gma.Framework.Cqrs;
+using Gma.Framework.FileManagement;
 using Gma.Framework.ModuleComposition;
 using Gma.Framework.Naming;
 using Gma.Framework.Scoping;
 using Gma.Framework.Results;
 using Gma.Framework.Security;
+using Microsoft.Net.Http.Headers;
 
 public sealed class FilesModule : IModule
 {
-    private const string MaximumObjectBytesConfigurationKey = "FileManagement:MaximumObjectBytes";
-    private const long DefaultMaximumObjectBytes = 10 * 1024 * 1024;
-
     public string Name => FilesModuleMetadata.Name;
 
     public void AddServices(IHostApplicationBuilder builder)
@@ -124,7 +123,7 @@ public sealed class FilesModule : IModule
     }
 
     private static readonly ApiErrorStatusCodeMap PublicErrorStatusCodes = ApiErrorStatusCodeMap.Create(
-        new(FilesApplicationErrors.TenantRequired.Code, StatusCodes.Status400BadRequest),
+        new(FilesApplicationErrors.ScopeRequired.Code, StatusCodes.Status400BadRequest),
         new(FilesApplicationErrors.FileRequired.Code, StatusCodes.Status400BadRequest),
         new(FilesApplicationErrors.FileEmpty.Code, StatusCodes.Status400BadRequest),
         new(FilesApplicationErrors.FileTooLarge.Code, StatusCodes.Status413PayloadTooLarge),
@@ -175,12 +174,13 @@ public sealed class FilesModule : IModule
 
     private static void ConfigureMultipartLimits(IHostApplicationBuilder builder)
     {
-        string? configuredMaximum = builder.Configuration[MaximumObjectBytesConfigurationKey];
+        string? configuredMaximum = builder.Configuration[
+            $"{FileManagementOptions.SectionName}:MaximumObjectBytes"];
         long maximumObjectBytes =
             long.TryParse(configuredMaximum, NumberStyles.Integer, CultureInfo.InvariantCulture, out long configured) &&
             configured > 0
                 ? configured
-                : DefaultMaximumObjectBytes;
+                : FileManagementOptions.DefaultMaximumObjectBytes;
 
         builder.Services.Configure<FormOptions>(options =>
         {
@@ -192,8 +192,19 @@ public sealed class FilesModule : IModule
     {
         public async Task ExecuteAsync(HttpContext httpContext)
         {
-            httpContext.Response.ContentType = download.File.Properties.ContentType;
-            httpContext.Response.ContentLength = download.File.Properties.ContentLength;
+            FileStorageObjectProperties properties = download.File.Properties;
+            httpContext.Response.ContentType = properties.ContentType;
+            httpContext.Response.ContentLength = properties.ContentLength;
+            httpContext.Response.Headers.CacheControl = "private, no-store";
+            httpContext.Response.Headers.Pragma = "no-cache";
+            httpContext.Response.Headers[HeaderNames.XContentTypeOptions] = "nosniff";
+            if (properties.FileName is not null)
+            {
+                ContentDispositionHeaderValue contentDisposition = new("attachment");
+                contentDisposition.SetHttpFileName(properties.FileName);
+                httpContext.Response.Headers.ContentDisposition = contentDisposition.ToString();
+            }
+
             await download.File.CopyToAsync(httpContext.Response.Body, httpContext.RequestAborted)
                 .ConfigureAwait(false);
         }
