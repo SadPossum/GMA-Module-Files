@@ -1,7 +1,8 @@
 # Files Production Hardening Task
 
-Status: in progress
+Status: completed
 Date: 2026-07-19
+Completed: 2026-07-19
 
 ## Goal
 
@@ -63,4 +64,9 @@ Make the optional private-user Files front door production-ready without moving 
 
 ## Completion Evidence
 
-Pending.
+- Framework `4f88cd4` rejects a null content-type allowlist through options validation and uses MinIO's asynchronous, cancellation-aware download callback. The full 966-test suite and transitive package vulnerability audit pass; GitHub Actions run `29702902334` is green.
+- Files `227b114` implements the versioned full-digest namespace, legacy read/delete compatibility, scope-generic errors, attachment-safe download headers, host-boundary documentation, 12 focused tests, the reusable-module boundary guard, Linux/Windows CI and package auditing. Follow-up `bb44737` satisfies Skeleton's direct-reference and documentation-index guardrails; GitHub Actions run `29703100012` is green on Windows and Linux.
+- GMA Skeleton `d45aba3` includes the Files test project and exact Framework/Files implementation pins. The complete local gate passes generated-app selection checks, a zero-warning build, migration drift checks, all 264 architecture tests and all fast suites; GitHub Actions run `29703166216` is green.
+- BunkFy Backend `cf8083c` includes the same exact implementation pins and test-project solution entry. Its complete non-Docker lane passes, its real MinIO/container lane passes all 32 Docker tests, and GitHub Actions validate run `29703759164` plus Docker run `29703759179` are green.
+- BunkFy root `77542db` includes only the backend pin and generated workspace-solution entry. Clean-checkout GitHub Actions run `29703808640` is green, including backend and frontend verification; unrelated local web and company-readiness work was not included.
+- The first Skeleton gate exposed one missing direct Framework project reference and one missing docs-index link. Both guardrail findings were corrected in Files before the slice was marked complete.
