@@ -1,5 +1,7 @@
 # Files Module
 
+Related delivery record: [Files production hardening task](files-production-hardening-task.md).
+
 `Files` is an optional scope-aware API front door over shared file storage.
 
 The module profile requires:
