@@ -28,6 +28,14 @@ public static class FilesApplicationErrors
         "Files.ContentTypeNotAllowed",
         "The uploaded file content type is not allowed.");
 
+    public static readonly Error ContentTypeDetectionRequired = new(
+        "Files.ContentTypeDetectionRequired",
+        "The configured content-type detector could not classify the uploaded file.");
+
+    public static readonly Error ContentTypeUnrecognized = new(
+        "Files.ContentTypeUnrecognized",
+        "The uploaded file content type could not be recognized.");
+
     public static readonly Error ContentInspectionRequired = new(
         "Files.ContentInspectionRequired",
         "The configured content inspection service could not approve the uploaded file.");

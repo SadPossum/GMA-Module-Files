@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using Gma.Framework.Api.Modules;
 using Gma.Framework.Cqrs.Infrastructure;
+using Gma.Framework.FileManagement;
 using Gma.Framework.FileManagement.LocalStorage;
 using Gma.Framework.ModuleComposition;
 using Gma.Framework.Scoping.Infrastructure;
@@ -98,6 +99,28 @@ public sealed class FilesModuleTests
             Directory.EnumerateFiles(running.StorageRoot, "*", SearchOption.AllDirectories).Any());
     }
 
+    [Theory]
+    [InlineData(FileContentTypeDetectionStatus.Unrecognized, HttpStatusCode.UnsupportedMediaType)]
+    [InlineData(FileContentTypeDetectionStatus.Unavailable, HttpStatusCode.ServiceUnavailable)]
+    public async Task Api_maps_trusted_detection_failures_without_storing_the_upload(
+        FileContentTypeDetectionStatus status,
+        HttpStatusCode expectedStatus)
+    {
+        await using RunningApplication running = await RunningApplication.StartAsync(status);
+        using HttpClient owner = running.CreateClient("user-a", "scope-a", "scope-a");
+        using MultipartFormDataContent form = new();
+        using ByteArrayContent file = new(Encoding.UTF8.GetBytes("untrusted"));
+        file.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        form.Add(file, "file", "upload.txt");
+
+        using HttpResponseMessage response = await owner.PostAsync("/api/files", form);
+
+        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.False(
+            Directory.Exists(running.StorageRoot) &&
+            Directory.EnumerateFiles(running.StorageRoot, "*", SearchOption.AllDirectories).Any());
+    }
+
     private static async Task<FileUploadResponse> UploadTextAsync(HttpClient client, string value)
     {
         using MultipartFormDataContent form = new();
@@ -115,7 +138,8 @@ public sealed class FilesModuleTests
         public WebApplication Application { get; } = application;
         public string StorageRoot { get; } = storageRoot;
 
-        public static async Task<RunningApplication> StartAsync()
+        public static async Task<RunningApplication> StartAsync(
+            FileContentTypeDetectionStatus? detectionStatus = null)
         {
             string storageRoot = Path.Combine(Path.GetTempPath(), $"gma-files-api-{Guid.NewGuid():N}");
             WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -132,8 +156,16 @@ public sealed class FilesModuleTests
                 ["FileManagement:Provider"] = "LocalStorage",
                 ["FileManagement:MaximumObjectBytes"] = "1048576",
                 ["FileManagement:AllowedContentTypes:0"] = "text/plain",
-                ["FileManagement:LocalStorage:RootPath"] = storageRoot
+                ["FileManagement:LocalStorage:RootPath"] = storageRoot,
+                ["Files:Uploads:RequireTrustedContentType"] = detectionStatus.HasValue.ToString()
             });
+
+            if (detectionStatus is { } status)
+            {
+                ApiContentTypeDetector detector = new(status);
+                builder.Services.AddSingleton<IFileContentTypeDetector>(detector);
+                builder.Services.AddSingleton<IFileContentTypeDetectorReadiness>(detector);
+            }
 
             builder.AddScopingInfrastructure();
             builder.AddCqrsInfrastructure();
@@ -190,6 +222,32 @@ public sealed class FilesModuleTests
             {
                 Directory.Delete(this.StorageRoot, recursive: true);
             }
+        }
+    }
+
+    private sealed class ApiContentTypeDetector(FileContentTypeDetectionStatus status) :
+        IFileContentTypeDetector,
+        IFileContentTypeDetectorReadiness
+    {
+        public ValueTask<FileContentTypeDetectionResult> DetectAsync(
+            FileContentTypeDetectionRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(status switch
+            {
+                FileContentTypeDetectionStatus.Detected =>
+                    FileContentTypeDetectionResult.Detected("api-test-detector", "text/plain"),
+                FileContentTypeDetectionStatus.Unrecognized =>
+                    FileContentTypeDetectionResult.Unrecognized("api-test-detector"),
+                _ => FileContentTypeDetectionResult.Unavailable("api-test-detector")
+            });
+        }
+
+        public ValueTask<FileContentCapabilityReadiness> CheckReadinessAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(FileContentCapabilityReadiness.Ready("api-test-detector"));
         }
     }
 

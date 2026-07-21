@@ -20,8 +20,24 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(FileManagementOptions.SectionName))
             .Validate(IsValidFileManagementOptions, FileManagementOptionsValidation.FailureMessage)
             .ValidateOnStart();
+        services
+            .AddOptions<FilesUploadOptions>()
+            .Bind(configuration.GetSection(FilesUploadOptions.SectionName))
+            .ValidateOnStart();
         services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);
-        services.TryAddSingleton<IFileContentInspector, UnavailableFileContentInspector>();
+        services.TryAddSingleton<UnavailableFileContentInspector>();
+        services.TryAddSingleton<IFileContentInspector>(provider =>
+            provider.GetRequiredService<UnavailableFileContentInspector>());
+        services.TryAddSingleton<IFileContentInspectorReadiness>(provider =>
+            provider.GetRequiredService<IFileContentInspector>() as IFileContentInspectorReadiness ??
+            provider.GetRequiredService<UnavailableFileContentInspector>());
+        services.TryAddSingleton<UnavailableFileContentTypeDetector>();
+        services.TryAddSingleton<IFileContentTypeDetector>(provider =>
+            provider.GetRequiredService<UnavailableFileContentTypeDetector>());
+        services.TryAddSingleton<IFileContentTypeDetectorReadiness>(provider =>
+            provider.GetRequiredService<IFileContentTypeDetector>() as IFileContentTypeDetectorReadiness ??
+            provider.GetRequiredService<UnavailableFileContentTypeDetector>());
+        services.TryAddScoped<FileUploadContentGate>();
 
         return services;
     }

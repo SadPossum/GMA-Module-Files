@@ -9,3 +9,4 @@ Useful entry points:
 - `Gma.Modules.Files.slnx`
 - `docs/README.md`
 - `docs/files-production-hardening-task.md`
+- `docs/trusted-content-gate-task.md`

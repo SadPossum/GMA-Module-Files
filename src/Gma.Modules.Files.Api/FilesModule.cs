@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Gma.Framework.AccessControl;
 using Gma.Framework.Api.Modules;
@@ -36,6 +37,8 @@ public sealed class FilesModule : IModule
     {
         builder.SelectModuleProfile(FilesProfiles.Default, "Gma.Modules.Files.Api");
         builder.Services.AddFilesApplication(builder.Configuration);
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IHostedService, FilesUploadStartupValidator>());
         ConfigureMultipartLimits(builder);
     }
 
@@ -128,6 +131,8 @@ public sealed class FilesModule : IModule
         new(FilesApplicationErrors.FileEmpty.Code, StatusCodes.Status400BadRequest),
         new(FilesApplicationErrors.FileTooLarge.Code, StatusCodes.Status413PayloadTooLarge),
         new(FilesApplicationErrors.ContentTypeNotAllowed.Code, StatusCodes.Status415UnsupportedMediaType),
+        new(FilesApplicationErrors.ContentTypeDetectionRequired.Code, StatusCodes.Status503ServiceUnavailable),
+        new(FilesApplicationErrors.ContentTypeUnrecognized.Code, StatusCodes.Status415UnsupportedMediaType),
         new(FilesApplicationErrors.ContentInspectionRequired.Code, StatusCodes.Status503ServiceUnavailable),
         new(FilesApplicationErrors.ContentRejected.Code, StatusCodes.Status422UnprocessableEntity),
         new(FilesApplicationErrors.ContentLengthMismatch.Code, StatusCodes.Status400BadRequest),

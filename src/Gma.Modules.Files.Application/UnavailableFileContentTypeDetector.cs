@@ -2,17 +2,17 @@ namespace Gma.Modules.Files.Application;
 
 using Gma.Framework.FileManagement;
 
-internal sealed class UnavailableFileContentInspector :
-    IFileContentInspector,
-    IFileContentInspectorReadiness
+internal sealed class UnavailableFileContentTypeDetector :
+    IFileContentTypeDetector,
+    IFileContentTypeDetectorReadiness
 {
-    public ValueTask<FileContentInspectionResult> InspectAsync(
-        FileContentInspectionRequest request,
+    public ValueTask<FileContentTypeDetectionResult> DetectAsync(
+        FileContentTypeDetectionRequest request,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(FileContentInspectionResult.Unavailable("none"));
+        return ValueTask.FromResult(FileContentTypeDetectionResult.Unavailable("none"));
     }
 
     public ValueTask<FileContentCapabilityReadiness> CheckReadinessAsync(CancellationToken cancellationToken)

@@ -327,7 +327,7 @@ public sealed class FilesApplicationTests
         builder.Configuration["FileManagement:MaximumObjectBytes"] = maximumObjectBytes.ToString(
             System.Globalization.CultureInfo.InvariantCulture);
         builder.Configuration["FileManagement:AllowedContentTypes:0"] = "text/plain";
-        builder.Configuration["FileManagement:RequireContentInspection"] = requireInspection.ToString();
+        builder.Configuration["Files:Uploads:RequireContentInspection"] = requireInspection.ToString();
         builder.Configuration["FileManagement:LocalStorage:RootPath"] = root;
         builder.Services.AddSingleton<IIdGenerator>(new FixedIdGenerator(fileId));
         if (inspector is not null)

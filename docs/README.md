@@ -1,6 +1,9 @@
 # Files Module
 
-Related delivery record: [Files production hardening task](files-production-hardening-task.md).
+Related delivery records:
+
+- [Files production hardening task](files-production-hardening-task.md)
+- [Trusted content gate task](trusted-content-gate-task.md)
 
 `Files` is an optional scope-aware API front door over shared file storage.
 
@@ -13,7 +16,7 @@ It provides:
 
 - `files.objects`
 
-Use it when a host wants a centralized upload/download/delete surface for private user files such as profile images, attachments, imports, or exports. Feature modules can bypass the front door and use `Gma.Framework.FileManagement` directly when they own public files, cross-user sharing, or business-specific file lifecycle rules.
+Use it only when a host deliberately wants a centralized upload/download/delete surface for bounded private user files and can supply the required production content controls. Feature modules use `Gma.Framework.FileManagement` directly when they own public files, cross-user sharing, or business-specific file lifecycle rules.
 
 ## Endpoints
 
@@ -41,12 +44,27 @@ For MinIO, use `builder.AddMinioFileStorage()` instead, or register both adapter
 
 ## Content Inspection And Lifecycle
 
-Set `FileManagement:RequireContentInspection=true` in production and replace `IFileContentInspector` with a malware/content scanner adapter. Required inspection copies the upload into a bounded delete-on-close temporary file, verifies the declared length, scans the rewindable content, and stores bytes only after a `Clean` result. An unavailable scanner fails closed; development may explicitly set the option to `false`.
+Files owns upload policy separately from shared storage configuration:
 
-Storage metadata already records validated content type, length, file name, module metadata, and the inspector name. Product modules still own business retention, legal holds, public sharing, and orphan cleanup because those policies depend on the record that references the object. Delete through `IFileStorage` only after the owning module has made that lifecycle decision.
+```json
+{
+  "Files": {
+    "Uploads": {
+      "RequireTrustedContentType": true,
+      "RequireContentInspection": true
+    }
+  }
+}
+```
+
+Production requires both switches, a non-empty `FileManagement:AllowedContentTypes` list, a ready `IFileContentTypeDetector` plus `IFileContentTypeDetectorReadiness`, and a ready `IFileContentInspector` plus `IFileContentInspectorReadiness`. The module fails host startup when this safety floor is incomplete. GMA supplies unavailable fail-closed defaults, not a MIME library or malware scanner; the host must provide reviewed adapters.
+
+When either content gate is enabled, Files copies the upload once into a bounded delete-on-close temporary quarantine file and verifies its exact declared length. Trusted detection runs first and controls allowlisting plus the stored content type; the caller declaration cannot bypass policy. Inspection then sees the same rewound bytes. Only recognized, allowed, `Clean` content reaches storage. Unknown, disallowed, rejected, unavailable, mismatched, oversized, canceled, or failed uploads leave no Files object.
+
+Storage metadata records the trusted content type, length, normalized file name, module identity, detector identity, and inspector identity. Product modules still own business retention, legal holds, public sharing, and orphan cleanup because those policies depend on the record that references the object. Delete through `IFileStorage` only after the owning module has made that lifecycle decision.
 
 ## Host Limits And Operations
 
 The front door uses buffered `IFormFile` parsing and is intended for bounded private objects. `FileManagement:MaximumObjectBytes` also configures the per-multipart-section form limit. If a host raises that value above its web server or reverse-proxy request-body limit, it must raise the edge limit deliberately; GMA does not change a host-wide Kestrel, IIS or proxy setting from inside this module.
 
-Production hosts must also compose edge rate limiting, a storage quota or cost policy appropriate to the product, scanner health monitoring, private object-store access, credential rotation and product-owned orphan cleanup. Large media, resumable uploads and direct-to-object-store flows belong in a product module or adapter with their own authorization and lifecycle.
+Production hosts must also compose edge rate limiting, a storage quota or cost policy appropriate to the product, detector/scanner monitoring, private object-store access, credential rotation and product-owned orphan cleanup. Concrete detector/scanner conformance, including EICAR, archive-bomb, polyglot and spoofed-format cases, belongs to the selected adapters. Large media, resumable uploads and direct-to-object-store flows belong in a product module or adapter with their own authorization and lifecycle.
