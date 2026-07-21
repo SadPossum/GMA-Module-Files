@@ -94,7 +94,8 @@ If trusted detection is disabled outside production, preserve the existing decla
 
 ## Verification Evidence
 
-- Framework commit `f33353743029320d042465e596e9d4422d1d144c` passed GitHub Actions run `29789424685`.
+- Framework commits `f33353743029320d042465e596e9d4422d1d144c` and `ce6b8697f277a154d3a7b9811e52de2821b25ba4` passed GitHub Actions runs `29789424685` and `29790344289`.
 - Framework locally built with zero warnings, passed 1,007 tests, and reported no vulnerable packages.
 - Files locally built with zero warnings, passed its module-boundary guard and all 22 tests, and reported no vulnerable packages.
-- Exact Files, Skeleton, and downstream application commits are recorded by the publication chain once their CI runs complete.
+- Files commit `9dae85b556e7e13007ac1d747f049259f07ba94a` passed Windows and Linux GitHub Actions run `29789595078` against the first Framework commit; the final evidence commit reruns that matrix against the typed contract.
+- Exact Skeleton and downstream application commits are recorded by the publication chain once their CI runs complete.
