@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/.github/">
+    <File Path=".github/dependabot.yml" />
+  </Folder>
   <Folder Name="/docs/">
     <File Path="docs/files-production-hardening-task.md" />
     <File Path="docs/README.md" />
@@ -7,13 +10,17 @@
   <Folder Name="/eng/">
     <File Path="eng/bootstrap-source-roots.ps1" />
     <File Path="eng/check-boundaries.ps1" />
+    <File Path="eng/check-repository-security.ps1" />
   </Folder>
   <Folder Name="/.github/workflows/">
+    <File Path=".github/workflows/security.yml" />
     <File Path=".github/workflows/validate.yml" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path=".gitattributes" />
+    <File Path=".gma/repository-security.json" />
+    <File Path=".gma/security-exceptions.json" />
     <File Path=".gitignore" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
@@ -22,6 +29,7 @@
     <File Path="LICENSE" />
     <File Path="nuget.config" />
     <File Path="README.md" />
+    <File Path="SECURITY.md" />
   </Folder>
   <Folder Name="/src/Api/">
     <Project Path="src/Gma.Modules.Files.Api/Gma.Modules.Files.Api.csproj" />
