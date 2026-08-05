@@ -155,6 +155,50 @@ public sealed class FilesApplicationTests
         }
     }
 
+    [Fact]
+    public async Task Delete_removes_current_and_legacy_copies_without_fallback_resurrection()
+    {
+        string root = NewStorageRoot();
+        Guid fileId = Guid.Parse("019f4a7c-1000-7000-8000-000000000008");
+
+        try
+        {
+            using ServiceProvider provider = BuildProvider(root, fileId);
+            using IServiceScope serviceScope = provider.CreateScope();
+            SetScope(serviceScope, "scope-a");
+            IRequestDispatcher dispatcher = serviceScope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
+            IFileStorage storage = serviceScope.ServiceProvider.GetRequiredService<IFileStorage>();
+            IScopeContext scopeContext = serviceScope.ServiceProvider.GetRequiredService<IScopeContext>();
+            AccessSubject subject = AccessSubject.User("user-a");
+            FileStorageObjectKey currentKey = FilesStorageKeys.For(fileId, subject, scopeContext);
+            FileStorageObjectKey legacyKey = FilesStorageKeys.LegacyFor(fileId, subject, scopeContext);
+            byte[] payload = Encoding.UTF8.GetBytes("migrated-object");
+
+            foreach (FileStorageObjectKey key in new[] { currentKey, legacyKey })
+            {
+                await using MemoryStream content = new(payload);
+                await storage.PutAsync(new FileStorageWriteRequest(
+                    key,
+                    content,
+                    payload.Length,
+                    "text/plain",
+                    "migrated.txt"));
+            }
+
+            Result<Unit> delete = await dispatcher.SendAsync(new DeleteFileCommand(fileId, subject));
+            Result<FileDownload> afterDelete = await dispatcher.QueryAsync(new GetFileQuery(fileId, subject));
+
+            Assert.True(delete.IsSuccess, delete.Error.Message);
+            Assert.Null(await storage.GetPropertiesAsync(currentKey));
+            Assert.Null(await storage.GetPropertiesAsync(legacyKey));
+            Assert.Equal(FilesApplicationErrors.FileNotFound, afterDelete.Error);
+        }
+        finally
+        {
+            DeleteStorageRoot(root);
+        }
+    }
+
     [Theory]
     [InlineData(FileContentInspectionStatus.Rejected, "Files.ContentRejected")]
     [InlineData(FileContentInspectionStatus.Unavailable, "Files.ContentInspectionRequired")]

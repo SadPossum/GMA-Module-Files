@@ -72,13 +72,16 @@ internal sealed class FileUploadContentGate(
                 return Result.Failure<PreparedFileUpload>(FilesApplicationErrors.ContentLengthMismatch);
             }
 
+            await quarantine.FlushAsync(cancellationToken).ConfigureAwait(false);
+
             string? detector = null;
             if (policy.RequireTrustedContentType)
             {
                 quarantine.Position = 0;
+                await using BorrowedReadOnlyStream inspectionView = new(quarantine);
                 FileContentTypeDetectionResult detection = await contentTypeDetector.DetectAsync(
                         new FileContentTypeDetectionRequest(
-                            quarantine,
+                            inspectionView,
                             quarantine.Length,
                             command.FileName),
                         cancellationToken)
@@ -109,9 +112,10 @@ internal sealed class FileUploadContentGate(
             if (policy.RequireContentInspection)
             {
                 quarantine.Position = 0;
+                await using BorrowedReadOnlyStream inspectionView = new(quarantine);
                 FileContentInspectionResult inspection = await contentInspector.InspectAsync(
                         new FileContentInspectionRequest(
-                            quarantine,
+                            inspectionView,
                             quarantine.Length,
                             contentType,
                             command.FileName),

@@ -11,7 +11,9 @@ using Gma.Modules.Files.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -31,6 +33,8 @@ using Microsoft.Net.Http.Headers;
 
 public sealed class FilesModule : IModule
 {
+    private const long MultipartRequestOverheadBytes = 64 * 1024;
+
     public string Name => FilesModuleMetadata.Name;
 
     public void AddServices(IHostApplicationBuilder builder)
@@ -44,6 +48,8 @@ public sealed class FilesModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        long maximumObjectBytes = ResolveMaximumObjectBytes(
+            endpoints.ServiceProvider.GetRequiredService<IConfiguration>());
         RouteGroupBuilder group = endpoints.MapGroup("/api/files")
             .WithModuleName(this.Name)
             .WithTags("Files")
@@ -78,6 +84,7 @@ public sealed class FilesModule : IModule
         })
             .RequireScope()
             .RequireAuthorization()
+            .WithMetadata(new RequestSizeLimitAttribute(MultipartRequestLimit(maximumObjectBytes)))
             .DisableAntiforgery();
 
         group.MapGet("/{fileId:guid}", async (
@@ -179,19 +186,32 @@ public sealed class FilesModule : IModule
 
     private static void ConfigureMultipartLimits(IHostApplicationBuilder builder)
     {
-        string? configuredMaximum = builder.Configuration[
-            $"{FileManagementOptions.SectionName}:MaximumObjectBytes"];
-        long maximumObjectBytes =
-            long.TryParse(configuredMaximum, NumberStyles.Integer, CultureInfo.InvariantCulture, out long configured) &&
-            configured > 0
-                ? configured
-                : FileManagementOptions.DefaultMaximumObjectBytes;
+        long maximumObjectBytes = ResolveMaximumObjectBytes(builder.Configuration);
 
         builder.Services.Configure<FormOptions>(options =>
         {
             options.MultipartBodyLengthLimit = maximumObjectBytes;
         });
     }
+
+    private static long ResolveMaximumObjectBytes(IConfiguration configuration)
+    {
+        string? configuredMaximum = configuration[
+            $"{FileManagementOptions.SectionName}:MaximumObjectBytes"];
+        return long.TryParse(
+                   configuredMaximum,
+                   NumberStyles.Integer,
+                   CultureInfo.InvariantCulture,
+                   out long configured) &&
+               configured > 0
+            ? configured
+            : FileManagementOptions.DefaultMaximumObjectBytes;
+    }
+
+    private static long MultipartRequestLimit(long maximumObjectBytes) =>
+        maximumObjectBytes > long.MaxValue - MultipartRequestOverheadBytes
+            ? long.MaxValue
+            : maximumObjectBytes + MultipartRequestOverheadBytes;
 
     private sealed class FileDownloadHttpResult(FileDownload download) : IResult
     {
@@ -203,12 +223,13 @@ public sealed class FilesModule : IModule
             httpContext.Response.Headers.CacheControl = "private, no-store";
             httpContext.Response.Headers.Pragma = "no-cache";
             httpContext.Response.Headers[HeaderNames.XContentTypeOptions] = "nosniff";
+            ContentDispositionHeaderValue contentDisposition = new("attachment");
             if (properties.FileName is not null)
             {
-                ContentDispositionHeaderValue contentDisposition = new("attachment");
                 contentDisposition.SetHttpFileName(properties.FileName);
-                httpContext.Response.Headers.ContentDisposition = contentDisposition.ToString();
             }
+
+            httpContext.Response.Headers.ContentDisposition = contentDisposition.ToString();
 
             await download.File.CopyToAsync(httpContext.Response.Body, httpContext.RequestAborted)
                 .ConfigureAwait(false);

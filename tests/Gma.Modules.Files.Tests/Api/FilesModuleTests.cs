@@ -6,20 +6,26 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
+using Gma.Framework.AccessControl;
 using Gma.Framework.Api.Modules;
 using Gma.Framework.Cqrs.Infrastructure;
 using Gma.Framework.FileManagement;
 using Gma.Framework.FileManagement.LocalStorage;
 using Gma.Framework.ModuleComposition;
 using Gma.Framework.Scoping.Infrastructure;
+using Gma.Framework.Scoping;
 using Gma.Framework.Security;
 using Gma.Modules.Files.Api;
+using Gma.Modules.Files.Application;
 using Gma.Modules.Files.Contracts;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -46,6 +52,15 @@ public sealed class FilesModuleTests
         Assert.Equal(
             1_048_576,
             running.Application.Services.GetRequiredService<IOptions<FormOptions>>().Value.MultipartBodyLengthLimit);
+        Endpoint uploadEndpoint = Assert.Single(
+            running.Application.Services.GetRequiredService<EndpointDataSource>().Endpoints,
+            endpoint =>
+                endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.Contains(HttpMethods.Post) == true &&
+                endpoint is RouteEndpoint route &&
+                string.Equals(route.RoutePattern.RawText, "/api/files/", StringComparison.Ordinal));
+        Assert.Equal(
+            1_114_112,
+            uploadEndpoint.Metadata.GetMetadata<IRequestSizeLimitMetadata>()?.MaxRequestBodySize);
 
         using HttpClient anonymous = running.CreateClient(requestScope: "scope-a");
         using HttpResponseMessage anonymousResponse = await anonymous.GetAsync(
@@ -79,6 +94,52 @@ public sealed class FilesModuleTests
         using HttpResponseMessage afterDelete = await owner.GetAsync(upload.DownloadPath);
         Assert.Equal(HttpStatusCode.NoContent, ownerDelete.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, afterDelete.StatusCode);
+    }
+
+    [Fact]
+    public async Task Api_accepts_an_object_at_the_configured_limit_with_multipart_framing()
+    {
+        await using RunningApplication running = await RunningApplication.StartAsync();
+        using HttpClient owner = running.CreateClient("user-a", "scope-a", "scope-a");
+        using MultipartFormDataContent form = new();
+        using ByteArrayContent file = new(new byte[1_048_576]);
+        file.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        form.Add(file, "file", "maximum.txt");
+
+        using HttpResponseMessage response = await owner.PostAsync("/api/files", form);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Api_forces_attachment_handling_when_an_object_has_no_file_name()
+    {
+        await using RunningApplication running = await RunningApplication.StartAsync();
+        Guid fileId = Guid.Parse("019f4a7c-1000-7000-8000-000000000030");
+        AccessSubject subject = AccessSubject.User("user-a");
+        FileStorageObjectKey key = FilesStorageKeys.For(
+            fileId,
+            subject,
+            new TestScopeContext(IsEnabled: true, ScopeId: "scope-a"));
+        IFileStorage storage = running.Application.Services.GetRequiredService<IFileStorage>();
+        byte[] payload = Encoding.UTF8.GetBytes("unnamed-private-object");
+        await using (MemoryStream content = new(payload))
+        {
+            await storage.PutAsync(new FileStorageWriteRequest(
+                key,
+                content,
+                payload.Length,
+                "text/plain",
+                fileName: null));
+        }
+
+        using HttpClient owner = running.CreateClient("user-a", "scope-a", "scope-a");
+        using HttpResponseMessage response = await owner.GetAsync($"/api/files/{fileId:D}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.Null(response.Content.Headers.ContentDisposition?.FileName);
+        Assert.Null(response.Content.Headers.ContentDisposition?.FileNameStar);
     }
 
     [Fact]
@@ -281,4 +342,6 @@ public sealed class FilesModuleTests
             return Task.FromResult(AuthenticateResult.Success(ticket));
         }
     }
+
+    private sealed record TestScopeContext(bool IsEnabled, string? ScopeId) : IScopeContext;
 }

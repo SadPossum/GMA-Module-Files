@@ -4,6 +4,7 @@ Related delivery records:
 
 - [Files production hardening task](files-production-hardening-task.md)
 - [Trusted content gate task](trusted-content-gate-task.md)
+- [Files boundary revalidation task](files-boundary-revalidation-task.md)
 
 `Files` is an optional scope-aware API front door over shared file storage.
 
@@ -30,7 +31,7 @@ All endpoints require authorization. When scoping is enabled, the configured sco
 
 New objects use the versioned `files/v2` namespace. Reads and deletes also check the legacy truncated-digest namespace so existing objects remain usable, but the module never writes new legacy objects. A product that needs to remove legacy compatibility must migrate its referenced objects before disabling that fallback.
 
-Downloads are private attachment responses: the stored normalized file name is emitted when present, caching is disabled, and MIME sniffing is disabled. Public URLs, cross-user sharing and inline browser delivery require product-owned endpoints and policy rather than weakening this private front door.
+Downloads are private attachment responses even when no usable file name is stored: the stored normalized file name is emitted when present, caching is disabled, and MIME sniffing is disabled. Public URLs, cross-user sharing and inline browser delivery require product-owned endpoints and policy rather than weakening this private front door.
 
 ## Composition Example
 
@@ -59,12 +60,14 @@ Files owns upload policy separately from shared storage configuration:
 
 Production requires both switches, a non-empty `FileManagement:AllowedContentTypes` list, a ready `IFileContentTypeDetector` plus `IFileContentTypeDetectorReadiness`, and a ready `IFileContentInspector` plus `IFileContentInspectorReadiness`. The module fails host startup when this safety floor is incomplete. GMA supplies unavailable fail-closed defaults, not a MIME library or malware scanner; the host must provide reviewed adapters.
 
-When either content gate is enabled, Files copies the upload once into a bounded delete-on-close temporary quarantine file and verifies its exact declared length. Trusted detection runs first and controls allowlisting plus the stored content type; the caller declaration cannot bypass policy. Inspection then sees the same rewound bytes. Only recognized, allowed, `Clean` content reaches storage. Unknown, disallowed, rejected, unavailable, mismatched, oversized, canceled, or failed uploads leave no Files object.
+When either content gate is enabled, Files copies the upload once into a bounded delete-on-close temporary quarantine file and verifies its exact declared length. Trusted detection runs first and controls allowlisting plus the stored content type; the caller declaration cannot bypass policy. Detection and inspection each receive a fresh read-only, non-owning view over the same rewound bytes. Only recognized, allowed, `Clean` content reaches storage. Unknown, disallowed, rejected, unavailable, mismatched, oversized, canceled, or failed uploads leave no Files object.
 
 Storage metadata records the trusted content type, length, normalized file name, module identity, detector identity, and inspector identity. Product modules still own business retention, legal holds, public sharing, and orphan cleanup because those policies depend on the record that references the object. Delete through `IFileStorage` only after the owning module has made that lifecycle decision.
 
 ## Host Limits And Operations
 
-The front door uses buffered `IFormFile` parsing and is intended for bounded private objects. `FileManagement:MaximumObjectBytes` also configures the per-multipart-section form limit. If a host raises that value above its web server or reverse-proxy request-body limit, it must raise the edge limit deliberately; GMA does not change a host-wide Kestrel, IIS or proxy setting from inside this module.
+The front door uses buffered `IFormFile` parsing and is intended for bounded private objects. `FileManagement:MaximumObjectBytes` configures the per-multipart-section form limit, while the POST endpoint caps the complete request at that object limit plus a fixed 64 KiB allowance for multipart framing. If a host raises that value above its reverse-proxy request-body limit, it must raise the edge limit deliberately; GMA does not change a host-wide Kestrel, IIS or proxy setting.
+
+The POST endpoint deliberately disables ASP.NET Core antiforgery validation because this reusable API surface is for explicit non-cookie credentials such as bearer tokens or API keys. Do not expose it through ambient cookie authentication. A browser form or cookie-authenticated host must own an antiforgery-protected endpoint over the Files application or shared storage contracts.
 
 Production hosts must also compose edge rate limiting, a storage quota or cost policy appropriate to the product, detector/scanner monitoring, private object-store access, credential rotation and product-owned orphan cleanup. Concrete detector/scanner conformance, including EICAR, archive-bomb, polyglot and spoofed-format cases, belongs to the selected adapters. Large media, resumable uploads and direct-to-object-store flows belong in a product module or adapter with their own authorization and lifecycle.

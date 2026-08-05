@@ -11,6 +11,7 @@ using Gma.Framework.Runtime.Identity;
 using Gma.Framework.Scoping;
 using Gma.Framework.Scoping.Infrastructure;
 using Gma.Modules.Files.Api;
+using Gma.Modules.Files.Application;
 using Gma.Modules.Files.Application.Commands;
 using Gma.Modules.Files.Application.Queries;
 using Gma.Modules.Files.Application.ReadModels;
@@ -149,6 +150,58 @@ public sealed class FilesContentGateTests
             Assert.Equal(
                 "test-inspector",
                 download.Value.File.Properties.Metadata["content-inspector"]);
+        }
+        finally
+        {
+            DeleteStorageRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task Detection_and_inspection_receive_read_only_non_owning_quarantine_views()
+    {
+        string root = NewStorageRoot();
+        BoundaryTestingDetector detector = new();
+        BoundaryTestingInspector inspector = new();
+
+        try
+        {
+            using ServiceProvider provider = BuildProvider(
+                root,
+                requireTrustedContentType: true,
+                detector: detector,
+                requireInspection: true,
+                inspector: inspector);
+            using IServiceScope serviceScope = provider.CreateScope();
+            SetScope(serviceScope);
+            IRequestDispatcher dispatcher = serviceScope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
+            byte[] payload = Encoding.UTF8.GetBytes("immutable-quarantine");
+            await using MemoryStream content = new(payload);
+
+            var upload = await dispatcher.SendAsync(new UploadFileCommand(
+                content,
+                payload.Length,
+                "application/octet-stream",
+                "immutable.txt",
+                Gma.Framework.AccessControl.AccessSubject.User("user-a")));
+            Assert.True(upload.IsSuccess, upload.Error.Message);
+
+            var download = await dispatcher.QueryAsync(new GetFileQuery(
+                upload.Value.FileId,
+                Gma.Framework.AccessControl.AccessSubject.User("user-a")));
+            Assert.True(download.IsSuccess, download.Error.Message);
+            await using MemoryStream stored = new();
+            await download.Value.File.CopyToAsync(stored);
+
+            Assert.True(detector.WriteRejected);
+            Stream detectorView = Assert.IsType<Stream>(detector.View, exactMatch: false);
+            Assert.False(detectorView.CanRead);
+            Assert.Throws<ObjectDisposedException>(() => detectorView.ReadByte());
+            Assert.True(inspector.WriteRejected);
+            Assert.True(inspector.DisposedView);
+            Assert.Equal(payload, detector.Content);
+            Assert.Equal(payload, inspector.Content);
+            Assert.Equal(payload, stored.ToArray());
         }
         finally
         {
@@ -299,8 +352,52 @@ public sealed class FilesContentGateTests
             FileContentTypeDetectionRequest request,
             CancellationToken cancellationToken)
         {
-            this.QuarantinePath = Assert.IsType<FileStream>(request.Content).Name;
+            BorrowedReadOnlyStream view = Assert.IsType<BorrowedReadOnlyStream>(request.Content);
+            this.QuarantinePath = Assert.IsType<FileStream>(view.Source).Name;
             throw new InvalidOperationException("Detector failed.");
+        }
+    }
+
+    private sealed class BoundaryTestingDetector : IFileContentTypeDetector
+    {
+        public byte[] Content { get; private set; } = [];
+        public bool WriteRejected { get; private set; }
+        public Stream? View { get; private set; }
+
+        public async ValueTask<FileContentTypeDetectionResult> DetectAsync(
+            FileContentTypeDetectionRequest request,
+            CancellationToken cancellationToken)
+        {
+            this.View = request.Content;
+            Assert.False(request.Content.CanWrite);
+            Assert.Throws<NotSupportedException>(() => request.Content.WriteByte(0x7f));
+            this.WriteRejected = true;
+            await using MemoryStream copy = new();
+            await request.Content.CopyToAsync(copy, cancellationToken);
+            this.Content = copy.ToArray();
+            return FileContentTypeDetectionResult.Detected("boundary-detector", "text/plain");
+        }
+    }
+
+    private sealed class BoundaryTestingInspector : IFileContentInspector
+    {
+        public byte[] Content { get; private set; } = [];
+        public bool WriteRejected { get; private set; }
+        public bool DisposedView { get; private set; }
+
+        public async ValueTask<FileContentInspectionResult> InspectAsync(
+            FileContentInspectionRequest request,
+            CancellationToken cancellationToken)
+        {
+            Assert.False(request.Content.CanWrite);
+            Assert.Throws<NotSupportedException>(() => request.Content.SetLength(0));
+            this.WriteRejected = true;
+            await using MemoryStream copy = new();
+            await request.Content.CopyToAsync(copy, cancellationToken);
+            this.Content = copy.ToArray();
+            request.Content.Dispose();
+            this.DisposedView = true;
+            return FileContentInspectionResult.Clean("boundary-inspector");
         }
     }
 }
